@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import confetti from 'canvas-confetti';
 import { 
@@ -11,7 +11,13 @@ import {
   GraduationCap, 
   Eye, 
   EyeOff,
-  Filter
+  Filter,
+  Timer,
+  Clock,
+  Zap,
+  Play,
+  Pause,
+  RotateCcw
 } from 'lucide-react';
 import { SubjectId, QuestionItem, UserProfile } from '../types';
 import { QUESTIONS, CATEGORY_INFO } from '../data/learningData';
@@ -48,6 +54,14 @@ export const LearnZone: React.FC<LearnZoneProps> = ({ profile, onUpdateProfile }
   const [showHint, setShowHint] = useState(false);
   const [levelUpNotice, setLevelUpNotice] = useState<number | null>(null);
   const [showScratchpad, setShowScratchpad] = useState(true);
+
+  // Optional Challenge Timer Mode (จำลองบรรยากาศห้องสอบจริง ช่วยฝึกความเร็วและสมาธิ)
+  const [isTimerModeEnabled, setIsTimerModeEnabled] = useState<boolean>(false);
+  const [timerDuration, setTimerDuration] = useState<number>(30); // 15s, 30s, 45s, 60s
+  const [timeLeft, setTimeLeft] = useState<number>(30);
+  const [isTimerPaused, setIsTimerPaused] = useState<boolean>(false);
+  const [isTimeOut, setIsTimeOut] = useState<boolean>(false);
+  const timerRef = useRef<NodeJS.Timeout | null>(null);
 
   // Filter questions according to subject, category, and school exam source
   const filteredQuestions = QUESTIONS.filter((q) => {
@@ -91,7 +105,80 @@ export const LearnZone: React.FC<LearnZoneProps> = ({ profile, onUpdateProfile }
     setIsAnswered(false);
     setIsCorrect(false);
     setShowHint(false);
+    setIsTimeOut(false);
+    setTimeLeft(timerDuration);
     setCompanionMood('idle');
+  };
+
+  // Challenge Timer Countdown Loop
+  useEffect(() => {
+    if (!isTimerModeEnabled || isAnswered || isTimerPaused || !currentQ) {
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+        timerRef.current = null;
+      }
+      return;
+    }
+
+    timerRef.current = setInterval(() => {
+      setTimeLeft((prev) => {
+        if (prev <= 1) {
+          // Time expired!
+          clearInterval(timerRef.current!);
+          timerRef.current = null;
+          handleTimeOut();
+          return 0;
+        }
+
+        // Soft warning tick when <= 5 seconds remaining
+        if (prev <= 6) {
+          sound.playTick();
+        }
+
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => {
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+        timerRef.current = null;
+      }
+    };
+  }, [isTimerModeEnabled, isAnswered, isTimerPaused, currentQuestionIndex, currentQ]);
+
+  // When time runs out in Challenge Mode
+  const handleTimeOut = () => {
+    if (isAnswered || !currentQ) return;
+
+    setIsAnswered(true);
+    setIsCorrect(false);
+    setIsTimeOut(true);
+    setComboStreak(0);
+    setCompanionMood('wrong');
+    sound.playWrong();
+
+    const { updatedProfile } = recordQuestionResult(profile, currentQ.subject, false);
+    onUpdateProfile(updatedProfile);
+  };
+
+  // Toggle timer mode on/off
+  const toggleTimerMode = () => {
+    sound.playPop();
+    const nextState = !isTimerModeEnabled;
+    setIsTimerModeEnabled(nextState);
+    setTimeLeft(timerDuration);
+    setIsTimerPaused(false);
+    setIsTimeOut(false);
+  };
+
+  // Change timer duration (15s, 30s, 45s, 60s)
+  const handleChangeTimerDuration = (seconds: number) => {
+    sound.playPop();
+    setTimerDuration(seconds);
+    setTimeLeft(seconds);
+    setIsTimerPaused(false);
+    setIsTimeOut(false);
   };
 
   const handleChoiceSelect = (choiceIndex: number) => {
@@ -166,18 +253,70 @@ export const LearnZone: React.FC<LearnZoneProps> = ({ profile, onUpdateProfile }
             </p>
           </div>
 
-          {/* Combo streak badge */}
-          {comboStreak > 1 && (
-            <motion.div
-              initial={{ scale: 0.8 }}
-              animate={{ scale: 1 }}
-              className="bg-gradient-to-r from-orange-500 to-amber-500 text-white text-xs sm:text-sm font-black px-3 py-1 rounded-full shadow-sm flex items-center gap-1.5 animate-pulse"
+          {/* Right side controls: Combo badge & Challenge Timer Switch */}
+          <div className="flex flex-wrap items-center gap-2">
+            {/* Combo streak badge */}
+            {comboStreak > 1 && (
+              <motion.div
+                initial={{ scale: 0.8 }}
+                animate={{ scale: 1 }}
+                className="bg-gradient-to-r from-orange-500 to-amber-500 text-white text-xs sm:text-sm font-black px-3 py-1 rounded-full shadow-sm flex items-center gap-1.5 animate-pulse"
+              >
+                <span>🔥 COMBO x{comboStreak}!</span>
+                <span>⭐ +{comboStreak * 2}</span>
+              </motion.div>
+            )}
+
+            {/* Optional Challenge Timer Mode Toggle Button */}
+            <button
+              id="challenge-timer-toggle-btn"
+              type="button"
+              onClick={toggleTimerMode}
+              className={`px-3 py-1.5 rounded-2xl text-xs sm:text-sm font-black flex items-center gap-1.5 transition-all cursor-pointer shadow-sm border ${
+                isTimerModeEnabled
+                  ? 'bg-gradient-to-r from-rose-500 via-red-500 to-amber-500 text-white border-rose-600 ring-2 ring-rose-200'
+                  : 'bg-slate-100 hover:bg-slate-200 text-slate-700 border-slate-300'
+              }`}
+              title="เปิด/ปิด โหมดจับเวลา Challenge เพื่อจำลองการสอบจริงและฝึกสมาธิความเร็ว"
             >
-              <span>🔥 COMBO x{comboStreak}!</span>
-              <span>⭐ +{comboStreak * 2}</span>
-            </motion.div>
-          )}
+              <Timer size={16} className={isTimerModeEnabled ? 'animate-spin' : ''} />
+              <span>โหมดจับเวลา {isTimerModeEnabled ? 'เปิดอยู่ (ON)' : 'ปิด (OFF)'}</span>
+            </button>
+          </div>
         </div>
+
+        {/* Challenge Timer Settings Bar (if enabled) */}
+        {isTimerModeEnabled && (
+          <motion.div
+            initial={{ opacity: 0, y: -6 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mb-3 p-2.5 sm:p-3 bg-gradient-to-r from-red-50 via-rose-50 to-amber-50 rounded-2xl border border-rose-200 flex flex-wrap items-center justify-between gap-2"
+          >
+            <div className="flex items-center gap-2 text-xs sm:text-sm font-bold text-rose-950">
+              <Zap size={16} className="text-rose-500" />
+              <span>⏱️ โหมดจับเวลาจำลองห้องสอบจริง (Challenge Timer):</span>
+              <span className="hidden sm:inline font-normal text-rose-700">ฝึกความเร็วและความแม่นยำ</span>
+            </div>
+
+            <div className="flex items-center gap-1.5">
+              <span className="text-xs font-semibold text-slate-500 mr-1">เวลาต่อข้อ:</span>
+              {[15, 30, 45, 60].map((sec) => (
+                <button
+                  key={sec}
+                  type="button"
+                  onClick={() => handleChangeTimerDuration(sec)}
+                  className={`px-2.5 py-1 rounded-xl text-xs font-extrabold transition-all cursor-pointer ${
+                    timerDuration === sec
+                      ? 'bg-rose-600 text-white shadow-sm ring-2 ring-rose-300'
+                      : 'bg-white text-slate-600 border border-rose-200 hover:bg-rose-100'
+                  }`}
+                >
+                  {sec} วิ
+                </button>
+              ))}
+            </div>
+          </motion.div>
+        )}
 
         {/* Big Touch-Friendly Subject Buttons */}
         <div className="grid grid-cols-3 gap-2 sm:gap-3">
@@ -329,6 +468,53 @@ export const LearnZone: React.FC<LearnZoneProps> = ({ profile, onUpdateProfile }
             </div>
 
             <div className="flex items-center gap-2">
+              {/* Challenge Timer in header (when enabled) */}
+              {isTimerModeEnabled && (
+                <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border bg-white shadow-sm">
+                  <div
+                    className={`flex items-center gap-1.5 font-mono text-sm sm:text-base font-black ${
+                      timeLeft <= 5 ? 'text-rose-600 animate-pulse' : 'text-slate-800'
+                    }`}
+                  >
+                    <Clock size={16} className={timeLeft <= 5 ? 'text-rose-600' : 'text-amber-500'} />
+                    <span>
+                      00:{timeLeft < 10 ? `0${timeLeft}` : timeLeft}
+                    </span>
+                  </div>
+
+                  {/* Pause / Resume button */}
+                  {!isAnswered && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        sound.playPop();
+                        setIsTimerPaused(!isTimerPaused);
+                      }}
+                      className="p-1 rounded-lg hover:bg-slate-100 text-slate-500 hover:text-slate-800 cursor-pointer"
+                      title={isTimerPaused ? 'จับเวลาต่อ' : 'หยุดเวลาชั่วคราว'}
+                    >
+                      {isTimerPaused ? <Play size={14} className="text-emerald-600" /> : <Pause size={14} />}
+                    </button>
+                  )}
+
+                  {/* Reset current question timer */}
+                  {!isAnswered && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        sound.playPop();
+                        setTimeLeft(timerDuration);
+                        setIsTimerPaused(false);
+                      }}
+                      className="p-1 rounded-lg hover:bg-slate-100 text-slate-500 hover:text-slate-800 cursor-pointer"
+                      title="เริ่มนับเวลาข้อนี้ใหม่"
+                    >
+                      <RotateCcw size={14} />
+                    </button>
+                  )}
+                </div>
+              )}
+
               {/* Scratchpad toggle */}
               <button
                 type="button"
@@ -351,6 +537,51 @@ export const LearnZone: React.FC<LearnZoneProps> = ({ profile, onUpdateProfile }
               />
             </div>
           </div>
+
+          {/* Visual Timer Progress Bar (Only shown in Challenge Timer Mode) */}
+          {isTimerModeEnabled && (
+            <div className="mb-4">
+              <div className="flex items-center justify-between text-xs mb-1 px-1">
+                <span className="font-bold flex items-center gap-1 text-slate-600">
+                  <Zap size={13} className={timeLeft <= 5 ? 'text-rose-600 animate-bounce' : 'text-amber-500'} />
+                  <span>
+                    {isTimerPaused
+                      ? '⏸️ พักการจับเวลาชั่วคราว (Paused)'
+                      : isTimeOut
+                      ? '⌛ หมดเวลาข้อนี้แล้ว! (Time Expired)'
+                      : isAnswered
+                      ? '✅ ตอบเสร็จแล้ว'
+                      : timeLeft <= 5
+                      ? '⚠️ เร่งมือหน่อย! เหลือเวลาไม่ถึง 5 วินาที'
+                      : '⚡ โหมดจับเวลาจำลองห้องสอบจริง (Challenge Timer)'}
+                  </span>
+                </span>
+                <span
+                  className={`font-mono font-black ${
+                    timeLeft <= 5 ? 'text-rose-600 text-sm animate-pulse' : 'text-slate-700'
+                  }`}
+                >
+                  {timeLeft} / {timerDuration} วินาที
+                </span>
+              </div>
+
+              {/* Progress bar line */}
+              <div className="w-full h-2.5 bg-slate-100 rounded-full overflow-hidden border border-slate-200 p-0.5">
+                <motion.div
+                  className={`h-full rounded-full transition-all duration-300 ${
+                    timeLeft <= 5
+                      ? 'bg-rose-500 shadow-sm shadow-rose-300 animate-pulse'
+                      : timeLeft <= timerDuration * 0.4
+                      ? 'bg-amber-500'
+                      : 'bg-gradient-to-r from-emerald-500 to-teal-500'
+                  }`}
+                  style={{
+                    width: `${Math.max(0, Math.min(100, (timeLeft / timerDuration) * 100))}%`,
+                  }}
+                />
+              </div>
+            </div>
+          )}
 
           {/* Central Question Display: Image/Emoji + Formatted Problem */}
           <div className="bg-gradient-to-b from-amber-50/70 to-orange-50/40 rounded-2xl p-4 sm:p-6 border border-amber-200 flex flex-col items-center text-center relative mb-6">
@@ -539,14 +770,20 @@ export const LearnZone: React.FC<LearnZoneProps> = ({ profile, onUpdateProfile }
                 }`}
               >
                 <div className="flex items-center gap-3">
-                  <div className="text-3xl sm:text-4xl">{isCorrect ? '🎉' : '💡'}</div>
+                  <div className="text-3xl sm:text-4xl">{isCorrect ? '🎉' : isTimeOut ? '⌛' : '💡'}</div>
                   <div>
                     <h4 className="font-extrabold text-sm sm:text-base">
-                      {isCorrect ? 'ถูกต้องแล้ว เก่งมากๆ! (Excellent!)' : 'เกือบถูกแล้วนะ ลองจำคำตอบไว้นะคนเก่ง!'}
+                      {isCorrect
+                        ? 'ถูกต้องแล้ว เก่งมากๆ! (Excellent!)'
+                        : isTimeOut
+                        ? 'หมดเวลาแล้วนะคนเก่ง! (Time is Up!)'
+                        : 'เกือบถูกแล้วนะ ลองจำคำตอบไว้นะคนเก่ง!'}
                     </h4>
                     <p className="text-xs sm:text-sm text-slate-600 mt-0.5">
                       {isCorrect
                         ? `คุณได้รับ +3 ดาว ⭐ และ +25 EXP! (${currentQ.schoolSource})`
+                        : isTimeOut
+                        ? `หมดเวลา ${timerDuration} วินาที คำตอบที่ถูกต้องคือ "${currentQ.choices[currentQ.correctIndex]}" (${currentQ.englishWord || currentQ.thaiWord || ''})`
                         : `คำตอบที่ถูกต้องคือ "${currentQ.choices[currentQ.correctIndex]}" (${currentQ.englishWord || currentQ.thaiWord || ''})`}
                     </p>
                   </div>

@@ -140,6 +140,30 @@ class SoundManager {
     }
   }
 
+  // Subtle soft clock tick for challenge timer (under 5s warning)
+  public playTick() {
+    const ctx = this.getAudioContext();
+    if (!ctx) return;
+
+    try {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(800, ctx.currentTime);
+
+      gain.gain.setValueAtTime(0.06, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.04);
+
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+
+      osc.start(ctx.currentTime);
+      osc.stop(ctx.currentTime + 0.04);
+    } catch {
+      // ignore
+    }
+  }
+
   // Fanfare for level-up or game victory
   public playFanfare() {
     const ctx = this.getAudioContext();
