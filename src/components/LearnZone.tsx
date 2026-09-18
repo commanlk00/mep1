@@ -459,6 +459,7 @@ export const LearnZone: React.FC<LearnZoneProps> = ({ profile, onUpdateProfile }
           {showScratchpad && (
             <div className="mb-6">
               <HandwritingPad
+                key={`hw-${currentQ.id}`}
                 traceGuide={currentQ.traceGuide}
                 initialGuideType={currentQ.verticalCalculation ? 'grid' : 'handwriting'}
                 title={

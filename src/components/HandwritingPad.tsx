@@ -55,7 +55,13 @@ export const HandwritingPad: React.FC<HandwritingPadProps> = ({
   const [penSize, setPenSize] = useState<number>(4);
   const [isDrawing, setIsDrawing] = useState<boolean>(false);
   const [strokes, setStrokes] = useState<Stroke[]>([]);
+  const strokesRef = useRef<Stroke[]>([]);
   const currentStrokeRef = useRef<Stroke | null>(null);
+
+  // Sync ref
+  useEffect(() => {
+    strokesRef.current = strokes;
+  }, [strokes]);
 
   const colors = [
     { label: 'ดำ/ดินสอ', value: '#1e293b', bg: 'bg-slate-800' },
@@ -149,21 +155,26 @@ export const HandwritingPad: React.FC<HandwritingPadProps> = ({
     }
   }, [guideType, traceGuide]);
 
-  // Redraw all strokes
-  const redrawCanvas = useCallback(() => {
+  // Redraw all strokes cleanly without resizing the canvas buffer
+  const redrawCanvas = useCallback((targetStrokes?: Stroke[]) => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    const width = canvas.width / (window.devicePixelRatio || 1);
-    const height = canvas.height / (window.devicePixelRatio || 1);
+    const dpr = window.devicePixelRatio || 1;
+    const width = canvas.width / dpr;
+    const height = canvas.height / dpr;
+
+    ctx.save();
+    ctx.setTransform(dpr, 0, 0, dpr, 0);
 
     drawBackground(ctx, width, height);
 
-    // Replay saved strokes
-    strokes.forEach((stroke) => {
-      if (stroke.points.length < 2) return;
+    const strokeList = targetStrokes !== undefined ? targetStrokes : strokesRef.current;
+
+    strokeList.forEach((stroke) => {
+      if (!stroke.points || stroke.points.length === 0) return;
 
       ctx.save();
       ctx.lineCap = 'round';
@@ -183,16 +194,26 @@ export const HandwritingPad: React.FC<HandwritingPadProps> = ({
       }
 
       ctx.beginPath();
-      ctx.moveTo(stroke.points[0].x, stroke.points[0].y);
-      for (let i = 1; i < stroke.points.length; i++) {
-        ctx.lineTo(stroke.points[i].x, stroke.points[i].y);
+      const p0 = stroke.points[0];
+      ctx.moveTo(p0.x, p0.y);
+
+      if (stroke.points.length === 1) {
+        // Single dot tap
+        ctx.lineTo(p0.x + 0.1, p0.y + 0.1);
+      } else {
+        for (let i = 1; i < stroke.points.length; i++) {
+          const pt = stroke.points[i];
+          ctx.lineTo(pt.x, pt.y);
+        }
       }
       ctx.stroke();
       ctx.restore();
     });
-  }, [drawBackground, strokes]);
 
-  // Resize canvas according to container
+    ctx.restore();
+  }, [drawBackground]);
+
+  // Resize canvas according to container only when size physically changes
   const resizeCanvas = useCallback(() => {
     const canvas = canvasRef.current;
     const container = containerRef.current;
@@ -200,33 +221,80 @@ export const HandwritingPad: React.FC<HandwritingPadProps> = ({
 
     const rect = container.getBoundingClientRect();
     const dpr = window.devicePixelRatio || 1;
-    const width = Math.max(300, rect.width);
-    const height = 180; // default comfortable height
+    const width = Math.max(280, Math.floor(rect.width));
+    const height = 210; // Comfortable drawing height
 
-    canvas.width = width * dpr;
-    canvas.height = height * dpr;
-    canvas.style.width = `${width}px`;
-    canvas.style.height = `${height}px`;
+    const targetPixelWidth = Math.floor(width * dpr);
+    const targetPixelHeight = Math.floor(height * dpr);
 
-    const ctx = canvas.getContext('2d');
-    if (ctx) {
-      ctx.scale(dpr, dpr);
+    if (canvas.width !== targetPixelWidth || canvas.height !== targetPixelHeight) {
+      canvas.width = targetPixelWidth;
+      canvas.height = targetPixelHeight;
+      canvas.style.width = '100%';
+      canvas.style.height = `${height}px`;
+
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        ctx.setTransform(dpr, 0, 0, dpr, 0);
+      }
     }
 
     redrawCanvas();
   }, [redrawCanvas]);
 
+  // Initial and guide change resize
   useEffect(() => {
     if (isExpanded) {
-      resizeCanvas();
+      // Small timeout to allow container to calculate layout
+      const timer = setTimeout(() => {
+        resizeCanvas();
+      }, 20);
+      return () => clearTimeout(timer);
     }
-  }, [isExpanded, resizeCanvas, guideType, traceGuide]);
+  }, [isExpanded, guideType, traceGuide, resizeCanvas]);
 
+  // Resize observer to handle responsive layout without recreating on strokes
   useEffect(() => {
-    const handleResize = () => resizeCanvas();
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, [resizeCanvas]);
+    const container = containerRef.current;
+    if (!container || !isExpanded) return;
+
+    const ro = new ResizeObserver(() => {
+      resizeCanvas();
+    });
+    ro.observe(container);
+
+    const handleWindowResize = () => {
+      resizeCanvas();
+    };
+    window.addEventListener('resize', handleWindowResize);
+
+    return () => {
+      ro.disconnect();
+      window.removeEventListener('resize', handleWindowResize);
+    };
+  }, [isExpanded, resizeCanvas]);
+
+  // Prevent mobile browser touch gestures (scroll, pull-to-refresh, pinch zoom) while drawing
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const preventDefaultTouch = (e: TouchEvent) => {
+      if (e.cancelable) {
+        e.preventDefault();
+      }
+    };
+
+    canvas.addEventListener('touchstart', preventDefaultTouch, { passive: false });
+    canvas.addEventListener('touchmove', preventDefaultTouch, { passive: false });
+    canvas.addEventListener('touchend', preventDefaultTouch, { passive: false });
+
+    return () => {
+      canvas.removeEventListener('touchstart', preventDefaultTouch);
+      canvas.removeEventListener('touchmove', preventDefaultTouch);
+      canvas.removeEventListener('touchend', preventDefaultTouch);
+    };
+  }, [isExpanded]);
 
   // Pointer event coordinate translation
   const getCanvasPoint = (e: React.PointerEvent<HTMLCanvasElement>): StrokePoint | null => {
@@ -242,14 +310,18 @@ export const HandwritingPad: React.FC<HandwritingPadProps> = ({
   // Start Drawing
   const handlePointerDown = (e: React.PointerEvent<HTMLCanvasElement>) => {
     e.preventDefault();
-    (e.target as HTMLElement).setPointerCapture(e.pointerId);
+    try {
+      (e.target as HTMLElement).setPointerCapture(e.pointerId);
+    } catch {
+      // Safe fallback if pointer capture is not supported or already active
+    }
 
     const pt = getCanvasPoint(e);
     if (!pt) return;
 
     setIsDrawing(true);
     const newStroke: Stroke = {
-      points: [pt, pt],
+      points: [pt],
       color: penColor,
       size: penSize,
       mode: toolMode,
@@ -261,9 +333,12 @@ export const HandwritingPad: React.FC<HandwritingPadProps> = ({
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
+    const dpr = window.devicePixelRatio || 1;
     ctx.save();
+    ctx.setTransform(dpr, 0, 0, dpr, 0);
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
+
     if (toolMode === 'eraser') {
       ctx.strokeStyle = '#ffffff';
       ctx.lineWidth = penSize * 2.5;
@@ -287,7 +362,9 @@ export const HandwritingPad: React.FC<HandwritingPadProps> = ({
   // Continue Drawing
   const handlePointerMove = (e: React.PointerEvent<HTMLCanvasElement>) => {
     if (!isDrawing || !currentStrokeRef.current) return;
-    e.preventDefault();
+    if (e.cancelable) {
+      e.preventDefault();
+    }
 
     const pt = getCanvasPoint(e);
     if (!pt) return;
@@ -303,7 +380,9 @@ export const HandwritingPad: React.FC<HandwritingPadProps> = ({
     const p1 = pts[pts.length - 2];
     const p2 = pts[pts.length - 1];
 
+    const dpr = window.devicePixelRatio || 1;
     ctx.save();
+    ctx.setTransform(dpr, 0, 0, dpr, 0);
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
 
@@ -333,33 +412,36 @@ export const HandwritingPad: React.FC<HandwritingPadProps> = ({
     try {
       (e.target as HTMLElement).releasePointerCapture(e.pointerId);
     } catch {
-      // ignore
+      // Safe fallback
     }
 
     setIsDrawing(false);
     if (currentStrokeRef.current && currentStrokeRef.current.points.length > 0) {
-      setStrokes((prev) => [...prev, currentStrokeRef.current!]);
+      const completedStroke = currentStrokeRef.current;
+      const updated = [...strokesRef.current, completedStroke];
+      strokesRef.current = updated;
+      setStrokes(updated);
     }
     currentStrokeRef.current = null;
+    // Note: The stroke was already painted onto canvas context live!
+    // No resizeCanvas or canvas clearing needed here.
   };
 
   // Undo stroke
   const handleUndo = () => {
     sound.playPop();
-    setStrokes((prev) => prev.slice(0, -1));
+    const updated = strokesRef.current.slice(0, -1);
+    strokesRef.current = updated;
+    setStrokes(updated);
+    redrawCanvas(updated);
   };
 
   // Clear all
   const handleClear = () => {
     sound.playPop();
+    strokesRef.current = [];
     setStrokes([]);
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-    const width = canvas.width / (window.devicePixelRatio || 1);
-    const height = canvas.height / (window.devicePixelRatio || 1);
-    drawBackground(ctx, width, height);
+    redrawCanvas([]);
   };
 
   return (
@@ -571,8 +653,13 @@ export const HandwritingPad: React.FC<HandwritingPadProps> = ({
           {/* Touch-Friendly Canvas Wrapper */}
           <div
             ref={containerRef}
-            className="w-full bg-white rounded-xl border-2 border-slate-300 shadow-inner overflow-hidden relative cursor-crosshair"
-            style={{ touchAction: 'none' }}
+            className="w-full bg-white rounded-xl border-2 border-slate-300 shadow-inner overflow-hidden relative cursor-crosshair select-none"
+            style={{ 
+              touchAction: 'none', 
+              userSelect: 'none', 
+              WebkitUserSelect: 'none', 
+              overscrollBehavior: 'contain' 
+            }}
           >
             <canvas
               ref={canvasRef}
@@ -581,6 +668,12 @@ export const HandwritingPad: React.FC<HandwritingPadProps> = ({
               onPointerUp={handlePointerUp}
               onPointerCancel={handlePointerUp}
               className="block w-full touch-none select-none"
+              style={{
+                touchAction: 'none',
+                userSelect: 'none',
+                WebkitUserSelect: 'none',
+                WebkitTouchCallout: 'none',
+              }}
             />
           </div>
 
