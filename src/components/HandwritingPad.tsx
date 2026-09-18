@@ -167,7 +167,8 @@ export const HandwritingPad: React.FC<HandwritingPadProps> = ({
     const height = canvas.height / dpr;
 
     ctx.save();
-    ctx.setTransform(dpr, 0, 0, dpr, 0);
+    ctx.resetTransform?.() ?? ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.scale(dpr, dpr);
 
     drawBackground(ctx, width, height);
 
@@ -232,11 +233,6 @@ export const HandwritingPad: React.FC<HandwritingPadProps> = ({
       canvas.height = targetPixelHeight;
       canvas.style.width = '100%';
       canvas.style.height = `${height}px`;
-
-      const ctx = canvas.getContext('2d');
-      if (ctx) {
-        ctx.setTransform(dpr, 0, 0, dpr, 0);
-      }
     }
 
     redrawCanvas();
@@ -258,17 +254,31 @@ export const HandwritingPad: React.FC<HandwritingPadProps> = ({
     const container = containerRef.current;
     if (!container || !isExpanded) return;
 
+    let rafId: number | null = null;
     const ro = new ResizeObserver(() => {
-      resizeCanvas();
+      if (rafId !== null) {
+        cancelAnimationFrame(rafId);
+      }
+      rafId = requestAnimationFrame(() => {
+        resizeCanvas();
+      });
     });
     ro.observe(container);
 
     const handleWindowResize = () => {
-      resizeCanvas();
+      if (rafId !== null) {
+        cancelAnimationFrame(rafId);
+      }
+      rafId = requestAnimationFrame(() => {
+        resizeCanvas();
+      });
     };
     window.addEventListener('resize', handleWindowResize);
 
     return () => {
+      if (rafId !== null) {
+        cancelAnimationFrame(rafId);
+      }
       ro.disconnect();
       window.removeEventListener('resize', handleWindowResize);
     };
@@ -335,7 +345,8 @@ export const HandwritingPad: React.FC<HandwritingPadProps> = ({
 
     const dpr = window.devicePixelRatio || 1;
     ctx.save();
-    ctx.setTransform(dpr, 0, 0, dpr, 0);
+    ctx.resetTransform?.() ?? ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.scale(dpr, dpr);
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
 
@@ -382,7 +393,8 @@ export const HandwritingPad: React.FC<HandwritingPadProps> = ({
 
     const dpr = window.devicePixelRatio || 1;
     ctx.save();
-    ctx.setTransform(dpr, 0, 0, dpr, 0);
+    ctx.resetTransform?.() ?? ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.scale(dpr, dpr);
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
 
