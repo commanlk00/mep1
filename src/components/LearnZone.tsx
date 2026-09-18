@@ -27,6 +27,7 @@ interface LearnZoneProps {
 
 const FAMOUS_SCHOOLS = [
   'ทุกโรงเรียนดัง (All Exams)',
+  '⭐ ข้อสอบย้อนหลัง 10 ปี (MEP / EP / ห้องพิเศษ)',
   'สาธิตจุฬาฯ',
   'สาธิตเกษตรฯ',
   'อัสสัมชัญ / กรุงเทพคริสเตียน',
@@ -52,7 +53,17 @@ export const LearnZone: React.FC<LearnZoneProps> = ({ profile, onUpdateProfile }
   const filteredQuestions = QUESTIONS.filter((q) => {
     if (q.subject !== activeSubject) return false;
     if (activeCategory !== 'all' && q.category !== activeCategory) return false;
-    if (selectedSchool !== 'ทุกโรงเรียนดัง (All Exams)') {
+    if (selectedSchool === '⭐ ข้อสอบย้อนหลัง 10 ปี (MEP / EP / ห้องพิเศษ)') {
+      if (
+        !q.schoolSource.includes('ย้อนหลัง') &&
+        !q.schoolSource.includes('MEP') &&
+        !q.schoolSource.includes('EP') &&
+        !q.schoolSource.includes('ห้องพิเศษ') &&
+        !q.schoolSource.includes('Gifted')
+      ) {
+        return false;
+      }
+    } else if (selectedSchool !== 'ทุกโรงเรียนดัง (All Exams)') {
       if (!q.schoolSource.includes(selectedSchool)) return false;
     }
     return true;
@@ -278,8 +289,12 @@ export const LearnZone: React.FC<LearnZoneProps> = ({ profile, onUpdateProfile }
               }}
               className={`px-2.5 py-1 rounded-lg font-semibold whitespace-nowrap transition-colors cursor-pointer ${
                 selectedSchool === school
-                  ? 'bg-indigo-600 text-white'
-                  : 'bg-slate-50 hover:bg-slate-100 text-slate-600 border border-slate-200'
+                  ? school.includes('10 ปี')
+                    ? 'bg-gradient-to-r from-amber-500 to-rose-500 text-white shadow-sm ring-2 ring-amber-300'
+                    : 'bg-indigo-600 text-white shadow-sm'
+                  : school.includes('10 ปี')
+                    ? 'bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-300 font-bold'
+                    : 'bg-slate-50 hover:bg-slate-100 text-slate-600 border border-slate-200'
               }`}
             >
               {school}
@@ -432,12 +447,6 @@ export const LearnZone: React.FC<LearnZoneProps> = ({ profile, onUpdateProfile }
                 <HelpCircle size={16} />
                 <span>{showHint ? 'ซ่อนคำใบ้' : 'ดูคำใบ้ (Hint)'}</span>
               </button>
-
-              {currentQ.traceGuide && (
-                <span className="text-xs bg-indigo-50 text-indigo-700 border border-indigo-200 px-2.5 py-1 rounded-xl font-bold">
-                  ✍️ คำที่ฝึกเขียน: {currentQ.traceGuide}
-                </span>
-              )}
             </div>
 
             {/* Hint Box */}

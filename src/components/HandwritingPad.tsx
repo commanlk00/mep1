@@ -142,18 +142,7 @@ export const HandwritingPad: React.FC<HandwritingPadProps> = ({
 
     // Reset line dash
     ctx.setLineDash([]);
-
-    // Draw optional trace guide (faint large text in middle or top line)
-    if (traceGuide) {
-      ctx.save();
-      ctx.font = 'bold 56px "Sarabun", "Chakra Petch", sans-serif';
-      ctx.fillStyle = 'rgba(203, 213, 225, 0.45)'; // faint gray
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText(traceGuide, width / 2, height / 2);
-      ctx.restore();
-    }
-  }, [guideType, traceGuide]);
+  }, [guideType]);
 
   // Redraw all strokes cleanly without resizing the canvas buffer
   const redrawCanvas = useCallback((targetStrokes?: Stroke[]) => {
@@ -247,7 +236,7 @@ export const HandwritingPad: React.FC<HandwritingPadProps> = ({
       }, 20);
       return () => clearTimeout(timer);
     }
-  }, [isExpanded, guideType, traceGuide, resizeCanvas]);
+  }, [isExpanded, guideType, resizeCanvas]);
 
   // Resize observer to handle responsive layout without recreating on strokes
   useEffect(() => {
@@ -471,11 +460,9 @@ export const HandwritingPad: React.FC<HandwritingPadProps> = ({
                 รองรับนิ้ว & ปากกา Stylus
               </span>
             </h4>
-            {traceGuide && (
-              <span className="text-[11px] text-indigo-600 font-semibold">
-                ฝึกเขียนคำว่า: &ldquo;{traceGuide}&rdquo; ตามรอยจางๆ บนกระดานได้เลย!
-              </span>
-            )}
+            <span className="text-[11px] text-slate-500 font-medium">
+              สมุดเส้นบรรทัดมาตรฐาน &bull; เขียนตอบและทดเลขด้วยตนเอง
+            </span>
           </div>
         </div>
 
