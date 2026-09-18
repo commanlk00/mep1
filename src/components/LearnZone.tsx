@@ -1,11 +1,22 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import confetti from 'canvas-confetti';
-import { Sparkles, ArrowRight, RotateCcw, Award, CheckCircle2, AlertCircle, HelpCircle } from 'lucide-react';
-import { SubjectId, CategoryId, QuestionItem, UserProfile } from '../types';
+import { 
+  ArrowRight, 
+  Award, 
+  CheckCircle2, 
+  AlertCircle, 
+  HelpCircle, 
+  PenTool, 
+  GraduationCap, 
+  Eye, 
+  EyeOff,
+  Filter
+} from 'lucide-react';
+import { SubjectId, QuestionItem, UserProfile } from '../types';
 import { QUESTIONS, CATEGORY_INFO } from '../data/learningData';
-import { SoundButton } from './SoundButton';
 import { CompanionAvatar } from './CompanionAvatar';
+import { HandwritingPad } from './HandwritingPad';
 import { sound } from '../utils/sound';
 import { recordQuestionResult } from '../utils/storage';
 
@@ -14,9 +25,19 @@ interface LearnZoneProps {
   onUpdateProfile: (newProfile: UserProfile) => void;
 }
 
+const FAMOUS_SCHOOLS = [
+  'ทุกโรงเรียนดัง (All Exams)',
+  'สาธิตจุฬาฯ',
+  'สาธิตเกษตรฯ',
+  'อัสสัมชัญ / กรุงเทพคริสเตียน',
+  'เซนต์คาเบรียล',
+  'สารสาสน์วิเทศ',
+];
+
 export const LearnZone: React.FC<LearnZoneProps> = ({ profile, onUpdateProfile }) => {
   const [activeSubject, setActiveSubject] = useState<SubjectId>('english');
   const [activeCategory, setActiveCategory] = useState<string>('all');
+  const [selectedSchool, setSelectedSchool] = useState<string>('ทุกโรงเรียนดัง (All Exams)');
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [selectedChoice, setSelectedChoice] = useState<number | null>(null);
   const [isAnswered, setIsAnswered] = useState(false);
@@ -25,11 +46,15 @@ export const LearnZone: React.FC<LearnZoneProps> = ({ profile, onUpdateProfile }
   const [comboStreak, setComboStreak] = useState(0);
   const [showHint, setShowHint] = useState(false);
   const [levelUpNotice, setLevelUpNotice] = useState<number | null>(null);
+  const [showScratchpad, setShowScratchpad] = useState(true);
 
-  // Filter questions according to subject & category
+  // Filter questions according to subject, category, and school exam source
   const filteredQuestions = QUESTIONS.filter((q) => {
     if (q.subject !== activeSubject) return false;
     if (activeCategory !== 'all' && q.category !== activeCategory) return false;
+    if (selectedSchool !== 'ทุกโรงเรียนดัง (All Exams)') {
+      if (!q.schoolSource.includes(selectedSchool)) return false;
+    }
     return true;
   });
 
@@ -45,6 +70,7 @@ export const LearnZone: React.FC<LearnZoneProps> = ({ profile, onUpdateProfile }
     sound.playPop();
     setActiveSubject(subj);
     setActiveCategory('all');
+    setSelectedSchool('ทุกโรงเรียนดัง (All Exams)');
     setCurrentQuestionIndex(0);
     resetQuestionState();
   };
@@ -56,16 +82,6 @@ export const LearnZone: React.FC<LearnZoneProps> = ({ profile, onUpdateProfile }
     setShowHint(false);
     setCompanionMood('idle');
   };
-
-  // Auto-speak question prompt/audio text when question loads
-  useEffect(() => {
-    if (currentQ) {
-      const timer = setTimeout(() => {
-        sound.speak(currentQ.audioText, currentQ.lang);
-      }, 350);
-      return () => clearTimeout(timer);
-    }
-  }, [currentQuestionIndex, activeSubject, activeCategory]);
 
   const handleChoiceSelect = (choiceIndex: number) => {
     if (isAnswered || !currentQ) return;
@@ -117,7 +133,6 @@ export const LearnZone: React.FC<LearnZoneProps> = ({ profile, onUpdateProfile }
     if (currentQuestionIndex + 1 < filteredQuestions.length) {
       setCurrentQuestionIndex(currentQuestionIndex + 1);
     } else {
-      // Loop back or celebrate stage completion
       sound.playFanfare();
       setCurrentQuestionIndex(0);
     }
@@ -130,13 +145,13 @@ export const LearnZone: React.FC<LearnZoneProps> = ({ profile, onUpdateProfile }
         <div className="flex flex-col sm:flex-row items-center justify-between gap-3 mb-3">
           <div>
             <h2 className="text-lg sm:text-xl font-extrabold text-slate-800 flex items-center gap-2">
-              <span>เลือกวิชาเรียนสำหรับเด็ก ป.1 (MEP)</span>
+              <span>คลังแนวข้อสอบ ป.1 MEP จากโรงเรียนดัง</span>
               <span className="text-xs bg-indigo-100 text-indigo-700 px-2.5 py-0.5 rounded-full font-bold">
-                หมวดหมู่ชัดเจน
+                ข้อสอบจริง 90 ข้อ
               </span>
             </h2>
             <p className="text-xs text-slate-500 mt-0.5">
-              ฝึกฝนทักษะพื้นฐานผ่านเกมจับคู่ภาพและเสียง พร้อมระบบสะสมดาวและเลเวล
+              สาธิตจุฬาฯ • สาธิตเกษตรฯ • อัสสัมชัญ / กรุงเทพคริสเตียน • เซนต์คาเบรียล • สารสาสน์ MEP พร้อมระบบเขียนบนหน้าจอ
             </p>
           </div>
 
@@ -166,9 +181,9 @@ export const LearnZone: React.FC<LearnZoneProps> = ({ profile, onUpdateProfile }
                 : 'bg-indigo-50/50 hover:bg-indigo-100/50 text-indigo-950 border-indigo-100'
             }`}
           >
-            <span className="text-2xl sm:text-3xl mb-1">🇬🇧 🦁</span>
+            <span className="text-2xl sm:text-3xl mb-1">🇬🇧 👨‍⚕️</span>
             <span className="font-extrabold text-xs sm:text-base">English MEP</span>
-            <span className="text-[10px] sm:text-xs opacity-85">คำศัพท์ & เสียงโฟนิกส์</span>
+            <span className="text-[10px] sm:text-xs opacity-85">หมวดอาชีพ & Missing Letter</span>
           </button>
 
           {/* Thai */}
@@ -182,9 +197,9 @@ export const LearnZone: React.FC<LearnZoneProps> = ({ profile, onUpdateProfile }
                 : 'bg-sky-50/50 hover:bg-sky-100/50 text-sky-950 border-sky-100'
             }`}
           >
-            <span className="text-2xl sm:text-3xl mb-1">🇹🇭 🐔</span>
+            <span className="text-2xl sm:text-3xl mb-1">🇹🇭 ✍️</span>
             <span className="font-extrabold text-xs sm:text-base">ภาษาไทย ป.1</span>
-            <span className="text-[10px] sm:text-xs opacity-85">พยัญชนะ & สระประสม</span>
+            <span className="text-[10px] sm:text-xs opacity-85">ฝึกเขียนคัดลายมือ & เติมคำ</span>
           </button>
 
           {/* Math */}
@@ -198,9 +213,9 @@ export const LearnZone: React.FC<LearnZoneProps> = ({ profile, onUpdateProfile }
                 : 'bg-amber-50/50 hover:bg-amber-100/50 text-amber-950 border-amber-100'
             }`}
           >
-            <span className="text-2xl sm:text-3xl mb-1">🔢 🍎</span>
+            <span className="text-2xl sm:text-3xl mb-1">🔢 💯</span>
             <span className="font-extrabold text-xs sm:text-base">คณิตศาสตร์</span>
-            <span className="text-[10px] sm:text-xs opacity-85">นับจำนวน & บวกลบ</span>
+            <span className="text-[10px] sm:text-xs opacity-85">บวก-ลบเลขหลักสิบ & ทดเลข</span>
           </button>
         </div>
 
@@ -244,34 +259,85 @@ export const LearnZone: React.FC<LearnZoneProps> = ({ profile, onUpdateProfile }
             </button>
           ))}
         </div>
+
+        {/* Filter by Famous School Source */}
+        <div className="flex items-center gap-1.5 overflow-x-auto pt-2 mt-1 text-[11px]">
+          <span className="flex items-center gap-1 text-slate-400 font-bold whitespace-nowrap mr-1">
+            <Filter size={12} />
+            <span>คัดเฉพาะโรงเรียน:</span>
+          </span>
+          {FAMOUS_SCHOOLS.map((school) => (
+            <button
+              key={school}
+              type="button"
+              onClick={() => {
+                sound.playPop();
+                setSelectedSchool(school);
+                setCurrentQuestionIndex(0);
+                resetQuestionState();
+              }}
+              className={`px-2.5 py-1 rounded-lg font-semibold whitespace-nowrap transition-colors cursor-pointer ${
+                selectedSchool === school
+                  ? 'bg-indigo-600 text-white'
+                  : 'bg-slate-50 hover:bg-slate-100 text-slate-600 border border-slate-200'
+              }`}
+            >
+              {school}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* Game Arena Card */}
       {currentQ ? (
         <div className="bg-white rounded-3xl p-4 sm:p-6 shadow-md border-2 border-amber-200 relative overflow-hidden">
           
-          {/* Header info in question card */}
-          <div className="flex items-center justify-between gap-3 mb-4">
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-bold px-2.5 py-1 rounded-lg bg-amber-100 text-amber-800 border border-amber-200">
+          {/* Header info in question card: School Exam Source + Question counter */}
+          <div className="flex flex-wrap items-center justify-between gap-3 mb-4 pb-3 border-b border-slate-100">
+            <div className="flex flex-wrap items-center gap-2">
+              {/* Prestigious School Badge */}
+              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-black bg-gradient-to-r from-indigo-700 via-indigo-600 to-blue-600 text-white shadow-sm tracking-wide">
+                <GraduationCap size={15} />
+                <span>{currentQ.schoolSource}</span>
+              </span>
+
+              <span className="text-xs font-bold px-2.5 py-1.5 rounded-xl bg-amber-100 text-amber-800 border border-amber-200">
                 ข้อที่ {currentQuestionIndex + 1} / {filteredQuestions.length}
               </span>
-              {currentQ.phonics && (
-                <span className="hidden sm:inline-block text-xs font-semibold px-2 py-0.5 bg-purple-100 text-purple-800 rounded-md">
-                  Phonics: {currentQ.phonics}
+
+              {currentQ.isWritingExercise && (
+                <span className="text-xs font-bold px-2.5 py-1.5 rounded-xl bg-emerald-100 text-emerald-800 border border-emerald-300 flex items-center gap-1">
+                  <PenTool size={13} />
+                  <span>มีกระดานเขียน & คัดลายมือ</span>
                 </span>
               )}
             </div>
 
-            {/* Companion cheering on top right */}
-            <CompanionAvatar
-              companionId={profile.avatarId}
-              mood={companionMood}
-              size="md"
-            />
+            <div className="flex items-center gap-2">
+              {/* Scratchpad toggle */}
+              <button
+                type="button"
+                onClick={() => {
+                  sound.playPop();
+                  setShowScratchpad(!showScratchpad);
+                }}
+                className="px-2.5 py-1 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold flex items-center gap-1.5 border border-slate-300 cursor-pointer"
+                title="เปิด/ซ่อน กระดานเขียนบนหน้าจอ"
+              >
+                {showScratchpad ? <EyeOff size={14} /> : <Eye size={14} />}
+                <span>{showScratchpad ? 'ซ่อนกระดานเขียน' : 'เปิดกระดานเขียน'}</span>
+              </button>
+
+              {/* Companion cheering on top right */}
+              <CompanionAvatar
+                companionId={profile.avatarId}
+                mood={companionMood}
+                size="md"
+              />
+            </div>
           </div>
 
-          {/* Central Question Display: Big Image/Object + Audio Button */}
+          {/* Central Question Display: Image/Emoji + Formatted Problem */}
           <div className="bg-gradient-to-b from-amber-50/70 to-orange-50/40 rounded-2xl p-4 sm:p-6 border border-amber-200 flex flex-col items-center text-center relative mb-6">
             
             {/* Object Image or Math objects */}
@@ -287,11 +353,7 @@ export const LearnZone: React.FC<LearnZoneProps> = ({ profile, onUpdateProfile }
                   {currentQ.mathObjects.map((obj, i) => (
                     <span
                       key={i}
-                      className={`inline-block drop-shadow-sm ${
-                        obj === '➕' || obj === '➖' || obj === '❌'
-                          ? 'text-2xl font-black text-amber-800 bg-amber-200 px-2.5 py-0.5 rounded-lg'
-                          : 'animate-bounce-short'
-                      }`}
+                      className="inline-block drop-shadow-sm animate-bounce-short"
                     >
                       {obj}
                     </span>
@@ -305,32 +367,77 @@ export const LearnZone: React.FC<LearnZoneProps> = ({ profile, onUpdateProfile }
             </motion.div>
 
             {/* Prompt Instruction */}
-            <h3 className="text-base sm:text-xl font-bold text-slate-800 mt-2 max-w-lg">
+            <h3 className="text-base sm:text-xl font-bold text-slate-800 mt-2 max-w-2xl leading-relaxed">
               {currentQ.prompt}
             </h3>
 
-            {/* Listen Button and phonetic pronunciation */}
-            <div className="flex items-center gap-2 mt-3">
-              <SoundButton
-                textToSpeak={currentQ.audioText}
-                lang={currentQ.lang}
-                size="md"
-                label={`ฟังเสียง (${currentQ.audioText})`}
-                className="font-bold shadow-sm"
-              />
+            {/* Special Display: Missing Letter interactive card */}
+            {currentQ.missingLetterData && (
+              <div className="mt-4 p-3 sm:p-4 bg-white rounded-2xl border-2 border-indigo-300 shadow-sm flex flex-col items-center">
+                <span className="text-xs text-indigo-600 font-bold uppercase tracking-wider mb-1">
+                  เติมตัวอักษรที่ขาดหายไป (Missing Letter)
+                </span>
+                <div className="text-3xl sm:text-5xl font-black font-mono tracking-widest text-slate-800 py-1 flex items-center justify-center gap-2">
+                  {currentQ.missingLetterData.displayWord.split(' ').map((char, idx) => (
+                    <span
+                      key={idx}
+                      className={`inline-block px-2 py-0.5 rounded-lg ${
+                        char === '_' 
+                          ? 'bg-amber-100 border-2 border-dashed border-amber-500 text-amber-600 animate-pulse min-w-10 text-center' 
+                          : 'bg-slate-100'
+                      }`}
+                    >
+                      {char === '_' && isAnswered && isCorrect ? currentQ.missingLetterData?.missingLetter : char}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
 
+            {/* Special Display: Vertical 2-Digit Math Column Block */}
+            {currentQ.verticalCalculation && (
+              <div className="mt-4 p-4 bg-white rounded-2xl border-2 border-amber-300 shadow-sm inline-block">
+                <div className="flex justify-between text-[11px] font-bold text-slate-400 border-b border-slate-200 pb-1 mb-2 px-3 gap-6">
+                  <span>หลักสิบ (Tens)</span>
+                  <span>หลักหน่วย (Ones)</span>
+                </div>
+                <div className="font-mono text-3xl sm:text-4xl font-black text-slate-800 text-right px-4 space-y-1">
+                  <div>{currentQ.verticalCalculation.num1}</div>
+                  <div className="flex items-center justify-between gap-4 border-b-2 border-slate-800 pb-1">
+                    <span className="text-2xl text-amber-600 font-black">{currentQ.verticalCalculation.operator}</span>
+                    <span>{currentQ.verticalCalculation.num2}</span>
+                  </div>
+                  <div className="text-indigo-600 pt-1 tracking-widest">
+                    {isAnswered && isCorrect 
+                      ? (currentQ.verticalCalculation.operator === '+' 
+                          ? currentQ.verticalCalculation.num1 + currentQ.verticalCalculation.num2 
+                          : currentQ.verticalCalculation.num1 - currentQ.verticalCalculation.num2)
+                      : '? ?'}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Hint and Helper Actions */}
+            <div className="flex items-center gap-2 mt-4">
               <button
                 type="button"
                 onClick={() => {
                   sound.playPop();
                   setShowHint(!showHint);
                 }}
-                className="p-2.5 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 border border-slate-300 text-xs font-semibold flex items-center gap-1 cursor-pointer"
+                className="px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 text-xs font-semibold flex items-center gap-1.5 cursor-pointer"
                 title="ดูคำใบ้"
               >
-                <HelpCircle size={18} />
-                <span className="hidden sm:inline">คำใบ้</span>
+                <HelpCircle size={16} />
+                <span>{showHint ? 'ซ่อนคำใบ้' : 'ดูคำใบ้ (Hint)'}</span>
               </button>
+
+              {currentQ.traceGuide && (
+                <span className="text-xs bg-indigo-50 text-indigo-700 border border-indigo-200 px-2.5 py-1 rounded-xl font-bold">
+                  ✍️ คำที่ฝึกเขียน: {currentQ.traceGuide}
+                </span>
+              )}
             </div>
 
             {/* Hint Box */}
@@ -347,6 +454,21 @@ export const LearnZone: React.FC<LearnZoneProps> = ({ profile, onUpdateProfile }
               )}
             </AnimatePresence>
           </div>
+
+          {/* On-Screen Writing & Scratchpad Canvas (Integrated) */}
+          {showScratchpad && (
+            <div className="mb-6">
+              <HandwritingPad
+                traceGuide={currentQ.traceGuide}
+                initialGuideType={currentQ.verticalCalculation ? 'grid' : 'handwriting'}
+                title={
+                  currentQ.subject === 'math'
+                    ? 'ตารางสมุดทดเลข & วิธีทำแนวตั้ง (Math Scratchpad)'
+                    : 'กระดานฝึกเขียนคัดลายมือ & เติมคำ (Handwriting Pad)'
+                }
+              />
+            </div>
+          )}
 
           {/* Multiple Choices Cards */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
@@ -410,12 +532,12 @@ export const LearnZone: React.FC<LearnZoneProps> = ({ profile, onUpdateProfile }
                   <div className="text-3xl sm:text-4xl">{isCorrect ? '🎉' : '💡'}</div>
                   <div>
                     <h4 className="font-extrabold text-sm sm:text-base">
-                      {isCorrect ? 'ถูกต้องแล้ว เก่งมากๆ! (Excellent!)' : 'เกือบถูกแล้วนะ ลองจำไว้นะคนเก่ง!'}
+                      {isCorrect ? 'ถูกต้องแล้ว เก่งมากๆ! (Excellent!)' : 'เกือบถูกแล้วนะ ลองจำคำตอบไว้นะคนเก่ง!'}
                     </h4>
                     <p className="text-xs sm:text-sm text-slate-600 mt-0.5">
                       {isCorrect
-                        ? `คุณได้รับ +3 ดาว ⭐ และ +25 EXP!`
-                        : `คำตอบที่ถูกต้องคือ "${currentQ.choices[currentQ.correctIndex]}" (${currentQ.englishWord || currentQ.thaiWord})`}
+                        ? `คุณได้รับ +3 ดาว ⭐ และ +25 EXP! (${currentQ.schoolSource})`
+                        : `คำตอบที่ถูกต้องคือ "${currentQ.choices[currentQ.correctIndex]}" (${currentQ.englishWord || currentQ.thaiWord || ''})`}
                     </p>
                   </div>
                 </div>
@@ -427,7 +549,7 @@ export const LearnZone: React.FC<LearnZoneProps> = ({ profile, onUpdateProfile }
                     onClick={handleNextQuestion}
                     className="w-full sm:w-auto px-6 py-3 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-extrabold text-sm sm:text-base flex items-center justify-center gap-2 shadow-md shadow-amber-200 transition-all cursor-pointer active:scale-95"
                   >
-                    <span>ข้อถัดไป (Next)</span>
+                    <span>ข้อถัดไป (Next Question)</span>
                     <ArrowRight size={18} />
                   </button>
                 </div>
@@ -437,7 +559,17 @@ export const LearnZone: React.FC<LearnZoneProps> = ({ profile, onUpdateProfile }
         </div>
       ) : (
         <div className="bg-white rounded-3xl p-8 text-center text-slate-600 border border-amber-200">
-          <p>ไม่มีคำถามในหมวดหมู่นี้</p>
+          <p>ไม่มีคำถามในหมวดหมู่หรือโรงเรียนที่เลือก</p>
+          <button
+            type="button"
+            onClick={() => {
+              setActiveCategory('all');
+              setSelectedSchool('ทุกโรงเรียนดัง (All Exams)');
+            }}
+            className="mt-3 px-4 py-2 bg-indigo-600 text-white rounded-xl text-xs font-bold cursor-pointer"
+          >
+            แสดงคำถามทั้งหมด
+          </button>
         </div>
       )}
 
@@ -446,7 +578,7 @@ export const LearnZone: React.FC<LearnZoneProps> = ({ profile, onUpdateProfile }
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
             <Award className="text-amber-400" size={20} />
-            <h3 className="font-extrabold text-sm sm:text-base">ภารกิจการเรียนรู้ประจำวัน (Daily Missions)</h3>
+            <h3 className="font-extrabold text-sm sm:text-base">ภารกิจพิชิตข้อสอบประจำวัน (Daily Exam Missions)</h3>
           </div>
           <span className="text-xs bg-indigo-700 text-indigo-200 font-semibold px-2.5 py-0.5 rounded-full">
             รีเซ็ตทุกวัน

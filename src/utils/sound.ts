@@ -172,50 +172,10 @@ class SoundManager {
     }
   }
 
-  // Speech synthesis for English & Thai words
-  public speak(text: string, lang: 'en-US' | 'th-TH' = 'en-US'): Promise<void> {
-    return new Promise((resolve) => {
-      if (!this.soundEnabled) {
-        resolve();
-        return;
-      }
-
-      if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
-        this.playPop();
-        resolve();
-        return;
-      }
-
-      // Cancel previous speaking to avoid queue buildup
-      window.speechSynthesis.cancel();
-
-      const utterance = new SpeechSynthesisUtterance(text);
-      utterance.lang = lang;
-      utterance.rate = this.speechRate;
-      utterance.pitch = 1.15; // Slightly higher, friendly voice for kids
-
-      // Try to find a good voice matching language
-      const voices = window.speechSynthesis.getVoices();
-      if (voices.length > 0) {
-        const match = voices.find((v) => v.lang.startsWith(lang.substring(0, 2)));
-        if (match) {
-          utterance.voice = match;
-        }
-      }
-
-      utterance.onend = () => resolve();
-      utterance.onerror = () => {
-        // Fallback beep so kid gets audio feedback even if browser voice is missing
-        this.playPop();
-        resolve();
-      };
-
-      try {
-        window.speechSynthesis.speak(utterance);
-      } catch {
-        resolve();
-      }
-    });
+  // Voice speech synthesis removed per requirement: "ให้เอาระบบเสียงพูดออก"
+  public speak(_text?: string, _lang?: 'en-US' | 'th-TH'): Promise<void> {
+    // Speech synthesis is completely removed
+    return Promise.resolve();
   }
 }
 

@@ -1,6 +1,8 @@
 export type SubjectId = 'english' | 'thai' | 'math';
 
 export type EnglishCategory = 
+  | 'occupations'
+  | 'missing_letter'
   | 'animals' 
   | 'school' 
   | 'fruits_food' 
@@ -9,12 +11,14 @@ export type EnglishCategory =
   | 'phonics';
 
 export type ThaiCategory = 
+  | 'thai_writing'
   | 'consonants' 
   | 'vowels' 
   | 'daily_words' 
   | 'spelling';
 
 export type MathCategory = 
+  | 'math_tens'
   | 'counting' 
   | 'addition_10' 
   | 'subtraction_10' 
@@ -22,16 +26,29 @@ export type MathCategory =
 
 export type CategoryId = EnglishCategory | ThaiCategory | MathCategory;
 
+export interface MissingLetterData {
+  fullWord: string;
+  displayWord: string;
+  missingLetter: string;
+}
+
+export interface VerticalCalculationData {
+  num1: number;
+  num2: number;
+  operator: '+' | '-';
+}
+
 export interface QuestionItem {
   id: string;
   subject: SubjectId;
   category: CategoryId;
   prompt: string; // e.g., "What is this animal?" or "รูปนี้คืออะไร?" or "3 + 4 = ?"
+  schoolSource: string; // e.g. "แนวข้อสอบ สาธิตจุฬาฯ (MEP)", "แนวข้อสอบ สาธิตเกษตรฯ (MEP)", "แนวข้อสอบ อัสสัมชัญ / กรุงเทพคริสเตียน"
   englishWord?: string;
   thaiWord?: string;
   phonics?: string; // e.g., "c - a - t"
-  audioText: string;
-  lang: 'en-US' | 'th-TH';
+  audioText?: string;
+  lang?: 'en-US' | 'th-TH';
   imageEmoji: string;
   imageAltText?: string;
   mathObjects?: string[]; // for counting visualizations e.g. ['🍎', '🍎', '🍎']
@@ -39,6 +56,10 @@ export interface QuestionItem {
   correctIndex: number;
   hint: string;
   funFact?: string;
+  missingLetterData?: MissingLetterData;
+  traceGuide?: string;
+  verticalCalculation?: VerticalCalculationData;
+  isWritingExercise?: boolean;
 }
 
 export interface CompanionCharacter {

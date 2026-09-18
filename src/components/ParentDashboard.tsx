@@ -31,10 +31,12 @@ export const ParentDashboard: React.FC<ParentDashboardProps> = ({
 }) => {
   // Parental Lock Gate: Simple random math problem
   const [gatePassed, setGatePassed] = useState(false);
+  const [gateError, setGateError] = useState(false);
   const [numA] = useState(() => Math.floor(Math.random() * 8) + 3);
   const [numB] = useState(() => Math.floor(Math.random() * 7) + 2);
   const [parentAnswer, setParentAnswer] = useState('');
   const [showCertificate, setShowCertificate] = useState(false);
+  const [confirmReset, setConfirmReset] = useState(false);
 
   if (!isOpen) return null;
 
@@ -42,10 +44,11 @@ export const ParentDashboard: React.FC<ParentDashboardProps> = ({
     e.preventDefault();
     if (parseInt(parentAnswer, 10) === numA + numB) {
       sound.playCorrect();
+      setGateError(false);
       setGatePassed(true);
     } else {
       sound.playWrong();
-      alert('คำตอบไม่ถูกต้องสำหรับผู้ปกครอง กรุณาลองใหม่อีกครั้ง');
+      setGateError(true);
       setParentAnswer('');
     }
   };
@@ -67,11 +70,9 @@ export const ParentDashboard: React.FC<ParentDashboardProps> = ({
   );
 
   const handleResetData = () => {
-    if (confirm('ยืนยันการรีเซ็ตข้อมูลความก้าวหน้าทั้งหมดของน้องหรือไม่?')) {
-      onUpdateProfile(INITIAL_USER_PROFILE);
-      sound.playPop();
-      alert('รีเซ็ตข้อมูลการเรียนรู้เรียบร้อยแล้ว');
-    }
+    onUpdateProfile(INITIAL_USER_PROFILE);
+    sound.playPop();
+    setConfirmReset(false);
   };
 
   return (
@@ -120,10 +121,18 @@ export const ParentDashboard: React.FC<ParentDashboardProps> = ({
               <div className="p-4 rounded-2xl bg-indigo-50 border border-indigo-200 text-xl font-mono font-black text-indigo-900">
                 {numA} + {numB} = ?
               </div>
+              {gateError && (
+                <p className="text-xs text-rose-600 font-bold bg-rose-50 p-2 rounded-xl border border-rose-200">
+                  คำตอบไม่ถูกต้องสำหรับผู้ปกครอง กรุณาลองใหม่อีกครั้ง
+                </p>
+              )}
               <input
                 type="number"
                 value={parentAnswer}
-                onChange={(e) => setParentAnswer(e.target.value)}
+                onChange={(e) => {
+                  setParentAnswer(e.target.value);
+                  if (gateError) setGateError(false);
+                }}
                 placeholder="กรอกคำตอบที่ถูกต้อง..."
                 autoFocus
                 className="w-full px-4 py-3 rounded-xl border-2 border-slate-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 text-center text-lg font-bold text-slate-800 outline-none"
@@ -300,14 +309,34 @@ export const ParentDashboard: React.FC<ParentDashboardProps> = ({
               </button>
 
               <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={handleResetData}
-                  className="px-3 py-2 rounded-xl bg-slate-100 hover:bg-rose-50 text-rose-600 border border-slate-200 text-xs font-semibold flex items-center gap-1 cursor-pointer transition-colors"
-                >
-                  <RotateCcw size={14} />
-                  <span>รีเซ็ตสถิติ</span>
-                </button>
+                {confirmReset ? (
+                  <div className="flex items-center gap-1.5 bg-rose-50 p-1.5 rounded-xl border border-rose-300">
+                    <span className="text-[11px] text-rose-700 font-bold px-1">ยืนยันรีเซ็ต?</span>
+                    <button
+                      type="button"
+                      onClick={handleResetData}
+                      className="px-2 py-1 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-xs font-bold"
+                    >
+                      ใช่ รีเซ็ต
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setConfirmReset(false)}
+                      className="px-2 py-1 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-lg text-xs font-bold"
+                    >
+                      ยกเลิก
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setConfirmReset(true)}
+                    className="px-3 py-2 rounded-xl bg-slate-100 hover:bg-rose-50 text-rose-600 border border-slate-200 text-xs font-semibold flex items-center gap-1 cursor-pointer transition-colors"
+                  >
+                    <RotateCcw size={14} />
+                    <span>รีเซ็ตสถิติ</span>
+                  </button>
+                )}
 
                 <button
                   type="button"

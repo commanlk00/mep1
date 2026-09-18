@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import confetti from 'canvas-confetti';
-import { Trophy, Swords, Zap, RefreshCw, Bot, Users, Volume2 } from 'lucide-react';
+import { Trophy, Swords, Zap, RefreshCw, Bot, Users } from 'lucide-react';
 import { QuestionItem, UserProfile } from '../types';
 import { QUESTIONS, COMPANIONS } from '../data/learningData';
 import { sound } from '../utils/sound';
@@ -53,12 +53,7 @@ export const BattleMode: React.FC<BattleModeProps> = ({ profile, onUpdateProfile
 
   const activeQ = currentQuestions[currentQIndex];
 
-  // Auto-speak question in battle
-  useEffect(() => {
-    if (gameState === 'playing' && activeQ) {
-      sound.speak(activeQ.audioText, activeQ.lang);
-    }
-  }, [currentQIndex, gameState]);
+  // Auto-speak removed per requirement: "ให้เอาระบบเสียงพูดออก"
 
   // Bot logic
   useEffect(() => {
@@ -225,6 +220,14 @@ export const BattleMode: React.FC<BattleModeProps> = ({ profile, onUpdateProfile
 
           {/* Question Card Center */}
           <div className="my-6 bg-gradient-to-b from-amber-50 to-orange-50/50 rounded-2xl p-4 sm:p-6 border border-amber-200 text-center">
+            {/* School Exam Source Tag */}
+            <div className="mb-2">
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black bg-indigo-100 text-indigo-800 border border-indigo-200">
+                <span>🏫</span>
+                <span>{activeQ.schoolSource}</span>
+              </span>
+            </div>
+
             <div className="text-6xl sm:text-7xl mb-2 drop-shadow-sm animate-bounce-short">
               {activeQ.imageEmoji}
             </div>
@@ -232,14 +235,12 @@ export const BattleMode: React.FC<BattleModeProps> = ({ profile, onUpdateProfile
               {activeQ.prompt}
             </h3>
             
-            <button
-              type="button"
-              onClick={() => sound.speak(activeQ.audioText, activeQ.lang)}
-              className="mt-3 inline-flex items-center gap-1.5 px-3 py-1.5 bg-amber-200 hover:bg-amber-300 text-amber-900 rounded-full text-xs font-bold cursor-pointer"
-            >
-              <Volume2 size={16} />
-              <span>ฟังเสียงคำศัพท์ ({activeQ.audioText})</span>
-            </button>
+            {(activeQ.englishWord || activeQ.thaiWord) && (
+              <div className="mt-2 text-xs font-semibold text-slate-600">
+                {activeQ.englishWord && <span className="text-indigo-600 font-bold mr-2">{activeQ.englishWord}</span>}
+                {activeQ.thaiWord && <span className="text-slate-500">({activeQ.thaiWord})</span>}
+              </div>
+            )}
           </div>
 
           {/* Dual Action Play Zone */}
